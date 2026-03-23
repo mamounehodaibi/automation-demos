@@ -1,0 +1,290 @@
+{
+  "name": "Job Search Automation — Complete Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 8 * * 1-5" }]
+        }
+      },
+      "name": "Every Weekday 8AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 100]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-cover-letter",
+        "responseMode": "onReceived",
+        "responseData": "firstEntryJson"
+      },
+      "name": "Cover Letter Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 700],
+      "notes": "Receives: job_title, company_name, job_description, language (es/en)"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "track-application",
+        "responseMode": "onReceived",
+        "responseData": "firstEntryJson"
+      },
+      "name": "Track Application Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 1200],
+      "notes": "Receives: company, job_title, job_url, platform, notes"
+    },
+
+    {
+      "parameters": {
+        "url": "https://www.linkedin.com/jobs/search/?keywords=sysadmin+IT+support+automatizacion&location=Valencia%2C+Spain&f_TPR=r86400",
+        "options": { "response": { "response": { "responseFormat": "text" } } }
+      },
+      "name": "Scrape LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [500, 20]
+    },
+    {
+      "parameters": {
+        "url": "https://www.infojobs.net/jobsearch/search-results/list.xhtml?keyword=administrador+sistemas+automatizacion&province=42&sinceDate=_24_HOURS",
+        "options": { "response": { "response": { "responseFormat": "text" } } }
+      },
+      "name": "Scrape InfoJobs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [500, 140]
+    },
+    {
+      "parameters": {
+        "url": "https://www.tecnoempleo.com/busqueda-empleo.php?te=administrador+sistemas&pr=Valencia&fecha=1",
+        "options": { "response": { "response": { "responseFormat": "text" } } }
+      },
+      "name": "Scrape Tecnoempleo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [500, 260]
+    },
+    {
+      "parameters": {
+        "url": "https://es.indeed.com/jobs?q=sysadmin+automatizacion&l=Valencia&fromage=1",
+        "options": { "response": { "response": { "responseFormat": "text" } } }
+      },
+      "name": "Scrape Indeed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [500, 380]
+    },
+    {
+      "parameters": {
+        "functionCode": "const linkedinHtml = $('Scrape LinkedIn').first().json.data || '';\nconst infojobsHtml = $('Scrape InfoJobs').first().json.data || '';\nconst tecnoHtml = $('Scrape Tecnoempleo').first().json.data || '';\nconst indeedHtml = $('Scrape Indeed').first().json.data || '';\n\nfunction extractJobs(html, source, baseUrl, titlePattern, linkPattern) {\n  const jobs = [];\n  const titles = [...html.matchAll(titlePattern)];\n  const links = [...html.matchAll(linkPattern)];\n  const count = Math.min(titles.length, links.length, 10);\n  for (let i = 0; i < count; i++) {\n    jobs.push({\n      source,\n      title: titles[i][1].replace(/<[^>]*>/g, '').trim(),\n      url: links[i][1].startsWith('http') ? links[i][1] : baseUrl + links[i][1]\n    });\n  }\n  return jobs;\n}\n\nconst liJobs = extractJobs(linkedinHtml, 'LinkedIn', 'https://www.linkedin.com',\n  /class=\"base-search-card__title\"[^>]*>([^<]+)</gi,\n  /href=\"(https:\\/\\/www\\.linkedin\\.com\\/jobs\\/view\\/[^\"]+)\"/gi);\n\nconst ijJobs = extractJobs(infojobsHtml, 'InfoJobs', 'https://www.infojobs.net',\n  /class=\"[^\"]*js-o-link[^\"]*\"[^>]*>([^<]+)</gi,\n  /href=\"(\\/empleo\\/[^\"]+)\"/gi);\n\nconst teJobs = extractJobs(tecnoHtml, 'Tecnoempleo', 'https://www.tecnoempleo.com',\n  /<h3[^>]*class=\"[^\"]*fs18[^\"]*\"[^>]*><a[^>]*>([^<]+)<\\/a>/gi,\n  /href=\"(\\/oferta-trabajo\\/[^\"]+)\"/gi);\n\nconst inJobs = extractJobs(indeedHtml, 'Indeed', 'https://es.indeed.com',\n  /class=\"jobTitle\"[^>]*><[^>]+>([^<]+)</gi,\n  /href=\"(\\/rc\\/clk[^\"]+)\"/gi);\n\nconst allJobs = [...liJobs, ...ijJobs, ...teJobs, ...inJobs];\nconst today = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\nreturn [{ json: { jobs: allJobs, total: allJobs.length, date: today } }];"
+      },
+      "name": "Parse & Combine Jobs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "const { jobs, total, date } = items[0].json;\n\nif (total === 0) {\n  return [{ json: { subject: 'Busqueda empleo — Sin resultados hoy', body: 'No se han encontrado ofertas nuevas hoy.', total: 0 } }];\n}\n\nconst bySource = {};\njobs.forEach(j => {\n  if (!bySource[j.source]) bySource[j.source] = [];\n  bySource[j.source].push(j);\n});\n\nlet body = `RESUMEN DIARIO DE OFERTAS\\n${date}\\n${'='.repeat(50)}\\n\\nTotal: ${total} ofertas nuevas\\n\\n`;\n\nObject.entries(bySource).forEach(([source, sourceJobs]) => {\n  body += `── ${source.toUpperCase()} (${sourceJobs.length} ofertas) ──\\n`;\n  sourceJobs.forEach((j, i) => {\n    body += `${i + 1}. ${j.title}\\n   ${j.url}\\n\\n`;\n  });\n});\n\nbody += `${'='.repeat(50)}\\nProximos pasos:\\n1. Selecciona las mejores 3-5 ofertas\\n2. Genera carta de presentacion: POST https://nameek.app.n8n.cloud/webhook/generate-cover-letter\\n3. Registra candidatura: POST https://nameek.app.n8n.cloud/webhook/track-application\\n\\nBuena suerte!`;\n\nreturn [{ json: { subject: `Ofertas empleo — ${total} nuevas (${date})`, body, total } }];"
+      },
+      "name": "Build Digest Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1020, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [{ "value1": "={{ $json.total }}", "operation": "largerEqual", "value2": 1 }]
+        }
+      },
+      "name": "Jobs found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1260, 200]
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "name": "Send Digest Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1500, 100]
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "Busqueda empleo — Sin resultados hoy",
+        "message": "No se han encontrado ofertas nuevas hoy. El sistema seguira buscando manana.",
+        "options": {}
+      },
+      "name": "No Results Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1500, 300]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "YOUR_ANTHROPIC_API_KEY" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "=",
+              "value": "={\"model\":\"claude-opus-4-6\",\"max_tokens\":1024,\"messages\":[{\"role\":\"user\",\"content\":\"Eres un experto en cartas de presentacion profesionales.\\n\\nPERFIL DEL CANDIDATO:\\nNombre: Mamoune Hodaibi\\nUbicacion: Valencia, Espana\\nEmail: mamounehodaibi@gmail.com\\nGitHub: github.com/mamounehodaibi\\nExperiencia: 3+ anos como Desarrollador Full Stack, Ingeniero IT y Especialista en Automatizacion\\nHabilidades: n8n, Make, Zapier, automatizacion de workflows, Node.js, React, TypeScript, JavaScript, Python, Bash, Windows Server, Linux, Active Directory, soporte tecnico, ciberseguridad\\nIdiomas: Arabe nativo, Frances fluido, Espanol intermedio, Ingles profesional\\nCertificaciones: CompTIA Network+ certificado, Security+ en curso\\nFormacion: Grado Ingenieria Informatica UNED en curso\\n\\nOFERTA:\\nPuesto: {{ $json.body.job_title }}\\nEmpresa: {{ $json.body.company_name }}\\nDescripcion: {{ $json.body.job_description }}\\n\\nINSTRUCCIONES:\\n- Escribe en {{ $json.body.language === 'en' ? 'ingles' : 'espanol' }}\\n- Tono profesional pero cercano\\n- Maximo 4 parrafos\\n- Conecta habilidades del candidato con requisitos del puesto\\n- NO uses frases genericas\\n- Termina con llamada a la accion clara\\n- Solo el cuerpo de la carta, sin fecha ni direccion\"}]}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Claude — Generate Cover Letter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [550, 700]
+    },
+    {
+      "parameters": {
+        "functionCode": "const response = items[0].json;\nconst content = response.content && response.content[0] ? response.content[0].text : 'Error al generar carta';\nconst jobTitle = $('Cover Letter Webhook').first().json.body.job_title;\nconst company = $('Cover Letter Webhook').first().json.body.company_name;\nreturn [{ json: { cover_letter: content, job_title: jobTitle, company, subject: `Carta presentacion — ${jobTitle} en ${company}` } }];"
+      },
+      "name": "Extract Cover Letter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [820, 700]
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ 'CARTA DE PRESENTACION GENERADA\\n' + '='.repeat(50) + '\\n\\nPuesto: ' + $json.job_title + '\\nEmpresa: ' + $json.company + '\\n\\n' + '='.repeat(50) + '\\n\\n' + $json.cover_letter + '\\n\\n' + '='.repeat(50) + '\\n\\nRECUERDA: Revisa y personaliza antes de enviar.\\nRegistra candidatura: POST https://nameek.app.n8n.cloud/webhook/track-application' }}",
+        "options": {}
+      },
+      "name": "Send Cover Letter",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1080, 700]
+    },
+
+    {
+      "parameters": {
+        "functionCode": "const data = items[0].json;\nconst now = new Date();\nconst followUpDate = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);\nconst pad = (n) => String(n).padStart(2, '0');\nconst formatDate = (d) => `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;\nreturn [{ json: {\n  company: data.body.company || 'Sin especificar',\n  job_title: data.body.job_title || 'Sin especificar',\n  job_url: data.body.job_url || '',\n  platform: data.body.platform || 'Otro',\n  notes: data.body.notes || '',\n  date_applied: formatDate(now),\n  followup_date: formatDate(followUpDate),\n  status: 'Enviada',\n  followup_ms: followUpDate.getTime() - now.getTime()\n}}];"
+      },
+      "name": "Prepare Application Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [550, 1200]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "value": "YOUR_GOOGLE_SHEET_ID", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Candidaturas", "mode": "name" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Empresa": "={{ $json.company }}",
+            "Puesto": "={{ $json.job_title }}",
+            "URL": "={{ $json.job_url }}",
+            "Plataforma": "={{ $json.platform }}",
+            "Fecha Envio": "={{ $json.date_applied }}",
+            "Fecha Seguimiento": "={{ $json.followup_date }}",
+            "Estado": "={{ $json.status }}",
+            "Notas": "={{ $json.notes }}"
+          }
+        },
+        "options": {}
+      },
+      "name": "Log to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [820, 1100]
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "Candidatura registrada — {{ $json.job_title }} en {{ $json.company }}",
+        "message": "Candidatura registrada.\n\nEmpresa: {{ $json.company }}\nPuesto: {{ $json.job_title }}\nPlataforma: {{ $json.platform }}\nFecha envio: {{ $json.date_applied }}\nFecha seguimiento: {{ $json.followup_date }}\nURL: {{ $json.job_url }}\n\nRecuerda hacer seguimiento el {{ $json.followup_date }} si no recibes respuesta.",
+        "options": {}
+      },
+      "name": "Confirmation Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [820, 1300]
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.followup_ms }}",
+        "unit": "milliseconds"
+      },
+      "name": "Wait 5 Days",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1080, 1200]
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "Seguimiento — {{ $json.job_title }} en {{ $json.company }}",
+        "message": "Han pasado 5 dias desde que aplicaste a:\n\nPuesto: {{ $json.job_title }}\nEmpresa: {{ $json.company }}\nURL: {{ $json.job_url }}\n\nPlantilla de seguimiento sugerida:\n\n---\nHola [nombre],\n\nMe puse en contacto hace unos dias para el puesto de {{ $json.job_title }} y queria confirmar que habeis recibido mi candidatura. Sigo muy interesado en la oportunidad.\n\nSaludos,\nMamoune Hodaibi\nmamounehodaibi@gmail.com\n---\n\nActualiza el estado en tu hoja de seguimiento.",
+        "options": {}
+      },
+      "name": "Follow-up Reminder",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1320, 1200]
+    }
+  ],
+  "connections": {
+    "Every Weekday 8AM": {
+      "main": [[
+        { "node": "Scrape LinkedIn", "type": "main", "index": 0 },
+        { "node": "Scrape InfoJobs", "type": "main", "index": 0 },
+        { "node": "Scrape Tecnoempleo", "type": "main", "index": 0 },
+        { "node": "Scrape Indeed", "type": "main", "index": 0 }
+      ]]
+    },
+    "Scrape LinkedIn": { "main": [[{ "node": "Parse & Combine Jobs", "type": "main", "index": 0 }]] },
+    "Scrape InfoJobs": { "main": [[{ "node": "Parse & Combine Jobs", "type": "main", "index": 0 }]] },
+    "Scrape Tecnoempleo": { "main": [[{ "node": "Parse & Combine Jobs", "type": "main", "index": 0 }]] },
+    "Scrape Indeed": { "main": [[{ "node": "Parse & Combine Jobs", "type": "main", "index": 0 }]] },
+    "Parse & Combine Jobs": { "main": [[{ "node": "Build Digest Email", "type": "main", "index": 0 }]] },
+    "Build Digest Email": { "main": [[{ "node": "Jobs found?", "type": "main", "index": 0 }]] },
+    "Jobs found?": {
+      "main": [
+        [{ "node": "Send Digest Email", "type": "main", "index": 0 }],
+        [{ "node": "No Results Email", "type": "main", "index": 0 }]
+      ]
+    },
+    "Cover Letter Webhook": { "main": [[{ "node": "Claude — Generate Cover Letter", "type": "main", "index": 0 }]] },
+    "Claude — Generate Cover Letter": { "main": [[{ "node": "Extract Cover Letter", "type": "main", "index": 0 }]] },
+    "Extract Cover Letter": { "main": [[{ "node": "Send Cover Letter", "type": "main", "index": 0 }]] },
+    "Track Application Webhook": { "main": [[{ "node": "Prepare Application Data", "type": "main", "index": 0 }]] },
+    "Prepare Application Data": {
+      "main": [[
+        { "node": "Log to Google Sheets", "type": "main", "index": 0 },
+        { "node": "Confirmation Email", "type": "main", "index": 0 },
+        { "node": "Wait 5 Days", "type": "main", "index": 0 }
+      ]]
+    },
+    "Wait 5 Days": { "main": [[{ "node": "Follow-up Reminder", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}
