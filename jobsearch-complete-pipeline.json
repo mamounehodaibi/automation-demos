@@ -4,109 +4,179 @@
     {
       "parameters": {
         "rule": {
-          "interval": [{ "field": "cronExpression", "expression": "0 8 * * 1-5" }]
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1-5"
+            }
+          ]
         }
       },
       "name": "Every Weekday 8AM",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
-      "position": [250, 100]
+      "position": [
+        -256,
+        80
+      ],
+      "id": "54377dee-09a2-44bc-9c1d-678b7c5e96a7"
     },
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "generate-cover-letter",
-        "responseMode": "onReceived",
-        "responseData": "firstEntryJson"
+        "options": {}
       },
       "name": "Cover Letter Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [250, 700],
+      "position": [
+        -256,
+        688
+      ],
+      "id": "3bd739db-b96e-48c9-8719-8e803198dbf1",
+      "webhookId": "db15bb9d-e1b8-4cf5-8b39-870b9ca9a627",
       "notes": "Receives: job_title, company_name, job_description, language (es/en)"
     },
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "track-application",
-        "responseMode": "onReceived",
-        "responseData": "firstEntryJson"
+        "options": {}
       },
       "name": "Track Application Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [250, 1200],
+      "position": [
+        -256,
+        1184
+      ],
+      "id": "38c36635-f5c1-4df1-ae13-8961ff34615a",
+      "webhookId": "be54d3d5-d7ca-4280-8aee-b90942bb58df",
       "notes": "Receives: company, job_title, job_url, platform, notes"
     },
-
     {
       "parameters": {
         "url": "https://www.linkedin.com/jobs/search/?keywords=sysadmin+IT+support+automatizacion&location=Valencia%2C+Spain&f_TPR=r86400",
-        "options": { "response": { "response": { "responseFormat": "text" } } }
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
       },
       "name": "Scrape LinkedIn",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [500, 20]
+      "position": [
+        0,
+        0
+      ],
+      "id": "3fa513fd-88fc-4def-86dc-642756f1a03b"
     },
     {
       "parameters": {
         "url": "https://www.infojobs.net/jobsearch/search-results/list.xhtml?keyword=administrador+sistemas+automatizacion&province=42&sinceDate=_24_HOURS",
-        "options": { "response": { "response": { "responseFormat": "text" } } }
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
       },
       "name": "Scrape InfoJobs",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [500, 140]
+      "position": [
+        0,
+        128
+      ],
+      "id": "2b4acfd5-1914-4f1d-80b9-5fb6134e0a19"
     },
     {
       "parameters": {
         "url": "https://www.tecnoempleo.com/busqueda-empleo.php?te=administrador+sistemas&pr=Valencia&fecha=1",
-        "options": { "response": { "response": { "responseFormat": "text" } } }
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
       },
       "name": "Scrape Tecnoempleo",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [500, 260]
+      "position": [
+        0,
+        240
+      ],
+      "id": "0a162bdf-2dc0-42d7-92b8-13222b459380"
     },
     {
       "parameters": {
         "url": "https://es.indeed.com/jobs?q=sysadmin+automatizacion&l=Valencia&fromage=1",
-        "options": { "response": { "response": { "responseFormat": "text" } } }
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
       },
       "name": "Scrape Indeed",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [500, 380]
+      "position": [
+        0,
+        368
+      ],
+      "id": "8cd8c1d3-0bb1-4e43-a9fe-53431c9b21d7"
     },
     {
-      "parameters": {
-        "functionCode": "const linkedinHtml = $('Scrape LinkedIn').first().json.data || '';\nconst infojobsHtml = $('Scrape InfoJobs').first().json.data || '';\nconst tecnoHtml = $('Scrape Tecnoempleo').first().json.data || '';\nconst indeedHtml = $('Scrape Indeed').first().json.data || '';\n\nfunction extractJobs(html, source, baseUrl, titlePattern, linkPattern) {\n  const jobs = [];\n  const titles = [...html.matchAll(titlePattern)];\n  const links = [...html.matchAll(linkPattern)];\n  const count = Math.min(titles.length, links.length, 10);\n  for (let i = 0; i < count; i++) {\n    jobs.push({\n      source,\n      title: titles[i][1].replace(/<[^>]*>/g, '').trim(),\n      url: links[i][1].startsWith('http') ? links[i][1] : baseUrl + links[i][1]\n    });\n  }\n  return jobs;\n}\n\nconst liJobs = extractJobs(linkedinHtml, 'LinkedIn', 'https://www.linkedin.com',\n  /class=\"base-search-card__title\"[^>]*>([^<]+)</gi,\n  /href=\"(https:\\/\\/www\\.linkedin\\.com\\/jobs\\/view\\/[^\"]+)\"/gi);\n\nconst ijJobs = extractJobs(infojobsHtml, 'InfoJobs', 'https://www.infojobs.net',\n  /class=\"[^\"]*js-o-link[^\"]*\"[^>]*>([^<]+)</gi,\n  /href=\"(\\/empleo\\/[^\"]+)\"/gi);\n\nconst teJobs = extractJobs(tecnoHtml, 'Tecnoempleo', 'https://www.tecnoempleo.com',\n  /<h3[^>]*class=\"[^\"]*fs18[^\"]*\"[^>]*><a[^>]*>([^<]+)<\\/a>/gi,\n  /href=\"(\\/oferta-trabajo\\/[^\"]+)\"/gi);\n\nconst inJobs = extractJobs(indeedHtml, 'Indeed', 'https://es.indeed.com',\n  /class=\"jobTitle\"[^>]*><[^>]+>([^<]+)</gi,\n  /href=\"(\\/rc\\/clk[^\"]+)\"/gi);\n\nconst allJobs = [...liJobs, ...ijJobs, ...teJobs, ...inJobs];\nconst today = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\nreturn [{ json: { jobs: allJobs, total: allJobs.length, date: today } }];"
-      },
+      "parameters": {},
       "name": "Parse & Combine Jobs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [780, 200]
+      "position": [
+        288,
+        192
+      ],
+      "id": "30fe7d6d-e804-4f78-8416-731eff10bdcb"
     },
     {
-      "parameters": {
-        "functionCode": "const { jobs, total, date } = items[0].json;\n\nif (total === 0) {\n  return [{ json: { subject: 'Busqueda empleo — Sin resultados hoy', body: 'No se han encontrado ofertas nuevas hoy.', total: 0 } }];\n}\n\nconst bySource = {};\njobs.forEach(j => {\n  if (!bySource[j.source]) bySource[j.source] = [];\n  bySource[j.source].push(j);\n});\n\nlet body = `RESUMEN DIARIO DE OFERTAS\\n${date}\\n${'='.repeat(50)}\\n\\nTotal: ${total} ofertas nuevas\\n\\n`;\n\nObject.entries(bySource).forEach(([source, sourceJobs]) => {\n  body += `── ${source.toUpperCase()} (${sourceJobs.length} ofertas) ──\\n`;\n  sourceJobs.forEach((j, i) => {\n    body += `${i + 1}. ${j.title}\\n   ${j.url}\\n\\n`;\n  });\n});\n\nbody += `${'='.repeat(50)}\\nProximos pasos:\\n1. Selecciona las mejores 3-5 ofertas\\n2. Genera carta de presentacion: POST https://nameek.app.n8n.cloud/webhook/generate-cover-letter\\n3. Registra candidatura: POST https://nameek.app.n8n.cloud/webhook/track-application\\n\\nBuena suerte!`;\n\nreturn [{ json: { subject: `Ofertas empleo — ${total} nuevas (${date})`, body, total } }];"
-      },
+      "parameters": {},
       "name": "Build Digest Email",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1020, 200]
+      "position": [
+        528,
+        192
+      ],
+      "id": "6752bd87-9345-4e83-adc7-8e469810586b"
     },
     {
       "parameters": {
         "conditions": {
-          "number": [{ "value1": "={{ $json.total }}", "operation": "largerEqual", "value2": 1 }]
+          "number": [
+            {
+              "value1": "={{ $json.total }}",
+              "operation": "largerEqual",
+              "value2": 1
+            }
+          ]
         }
       },
       "name": "Jobs found?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [1260, 200]
+      "position": [
+        768,
+        192
+      ],
+      "id": "a2cac34f-9fa0-4f74-bddc-03eda874ec81"
     },
     {
       "parameters": {
@@ -118,7 +188,18 @@
       "name": "Send Digest Email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2,
-      "position": [1500, 100]
+      "position": [
+        1008,
+        80
+      ],
+      "id": "4bf66f5f-aed4-4826-aa1a-f40dd5daabe7",
+      "webhookId": "4995018b-7967-4ee6-8c7d-e1813a4a715f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ClUvWwINv7hM8JVV",
+          "name": "Gmail account"
+        }
+      }
     },
     {
       "parameters": {
@@ -130,45 +211,31 @@
       "name": "No Results Email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2,
-      "position": [1500, 300]
-    },
-
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.anthropic.com/v1/messages",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "x-api-key", "value": "YOUR_ANTHROPIC_API_KEY" },
-            { "name": "anthropic-version", "value": "2023-06-01" },
-            { "name": "content-type", "value": "application/json" }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "=",
-              "value": "={\"model\":\"claude-opus-4-6\",\"max_tokens\":1024,\"messages\":[{\"role\":\"user\",\"content\":\"Eres un experto en cartas de presentacion profesionales.\\n\\nPERFIL DEL CANDIDATO:\\nNombre: Mamoune Hodaibi\\nUbicacion: Valencia, Espana\\nEmail: mamounehodaibi@gmail.com\\nGitHub: github.com/mamounehodaibi\\nExperiencia: 3+ anos como Desarrollador Full Stack, Ingeniero IT y Especialista en Automatizacion\\nHabilidades: n8n, Make, Zapier, automatizacion de workflows, Node.js, React, TypeScript, JavaScript, Python, Bash, Windows Server, Linux, Active Directory, soporte tecnico, ciberseguridad\\nIdiomas: Arabe nativo, Frances fluido, Espanol intermedio, Ingles profesional\\nCertificaciones: CompTIA Network+ certificado, Security+ en curso\\nFormacion: Grado Ingenieria Informatica UNED en curso\\n\\nOFERTA:\\nPuesto: {{ $json.body.job_title }}\\nEmpresa: {{ $json.body.company_name }}\\nDescripcion: {{ $json.body.job_description }}\\n\\nINSTRUCCIONES:\\n- Escribe en {{ $json.body.language === 'en' ? 'ingles' : 'espanol' }}\\n- Tono profesional pero cercano\\n- Maximo 4 parrafos\\n- Conecta habilidades del candidato con requisitos del puesto\\n- NO uses frases genericas\\n- Termina con llamada a la accion clara\\n- Solo el cuerpo de la carta, sin fecha ni direccion\"}]}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "name": "Claude — Generate Cover Letter",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [550, 700]
+      "position": [
+        1008,
+        288
+      ],
+      "id": "e8e51d4b-c700-4243-b2f9-6f21df7f3dc2",
+      "webhookId": "3acb4f77-9a28-45ad-bb83-bd228ed59cc5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ClUvWwINv7hM8JVV",
+          "name": "Gmail account"
+        }
+      }
     },
     {
       "parameters": {
-        "functionCode": "const response = items[0].json;\nconst content = response.content && response.content[0] ? response.content[0].text : 'Error al generar carta';\nconst jobTitle = $('Cover Letter Webhook').first().json.body.job_title;\nconst company = $('Cover Letter Webhook').first().json.body.company_name;\nreturn [{ json: { cover_letter: content, job_title: jobTitle, company, subject: `Carta presentacion — ${jobTitle} en ${company}` } }];"
+        "jsCode": "const data = items[0].json;\nreturn [{ json: {\n  cover_letter: data.cover_letter,\n  job_title: data.job_title,\n  company: data.company,\n  subject: data.subject\n}}];"
       },
       "name": "Extract Cover Letter",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [820, 700]
+      "position": [
+        320,
+        688
+      ],
+      "id": "b92ccc23-8659-4e8d-b198-12d393ffa79d"
     },
     {
       "parameters": {
@@ -180,42 +247,31 @@
       "name": "Send Cover Letter",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2,
-      "position": [1080, 700]
+      "position": [
+        592,
+        688
+      ],
+      "id": "4d677587-2d52-4411-987b-2a20b82509a4",
+      "webhookId": "13ff40aa-5e4a-4d69-aed2-e31a8b91ed8c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ClUvWwINv7hM8JVV",
+          "name": "Gmail account"
+        }
+      }
     },
-
     {
       "parameters": {
-        "functionCode": "const data = items[0].json;\nconst now = new Date();\nconst followUpDate = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);\nconst pad = (n) => String(n).padStart(2, '0');\nconst formatDate = (d) => `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;\nreturn [{ json: {\n  company: data.body.company || 'Sin especificar',\n  job_title: data.body.job_title || 'Sin especificar',\n  job_url: data.body.job_url || '',\n  platform: data.body.platform || 'Otro',\n  notes: data.body.notes || '',\n  date_applied: formatDate(now),\n  followup_date: formatDate(followUpDate),\n  status: 'Enviada',\n  followup_ms: followUpDate.getTime() - now.getTime()\n}}];"
+        "jsCode": "const data = items[0].json.body;\nconst now = new Date();\nconst followUpDate = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);\nconst pad = (n) => String(n).padStart(2, '0');\nconst formatDate = (d) => `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;\n\nreturn [{ json: {\n  company: data.company || 'Sin especificar',\n  job_title: data.job_title || 'Sin especificar',\n  job_url: data.job_url || '',\n  platform: data.platform || 'Otro',\n  notes: data.notes || '',\n  date_applied: formatDate(now),\n  followup_date: formatDate(followUpDate),\n  status: 'Enviada',\n  followup_ms: followUpDate.getTime() - now.getTime()\n}}];"
       },
       "name": "Prepare Application Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [550, 1200]
-    },
-    {
-      "parameters": {
-        "operation": "append",
-        "documentId": { "__rl": true, "value": "YOUR_GOOGLE_SHEET_ID", "mode": "id" },
-        "sheetName": { "__rl": true, "value": "Candidaturas", "mode": "name" },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "Empresa": "={{ $json.company }}",
-            "Puesto": "={{ $json.job_title }}",
-            "URL": "={{ $json.job_url }}",
-            "Plataforma": "={{ $json.platform }}",
-            "Fecha Envio": "={{ $json.date_applied }}",
-            "Fecha Seguimiento": "={{ $json.followup_date }}",
-            "Estado": "={{ $json.status }}",
-            "Notas": "={{ $json.notes }}"
-          }
-        },
-        "options": {}
-      },
-      "name": "Log to Google Sheets",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4,
-      "position": [820, 1100]
+      "position": [
+        64,
+        1184
+      ],
+      "id": "87b7e41a-21fe-42fe-a112-3c62b4d04fca"
     },
     {
       "parameters": {
@@ -227,17 +283,33 @@
       "name": "Confirmation Email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2,
-      "position": [820, 1300]
+      "position": [
+        320,
+        1280
+      ],
+      "id": "1353a5e3-1108-4171-98e3-c8fc2e003265",
+      "webhookId": "a5bbbb12-2144-4f54-ab8d-a1fd1e774714",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ClUvWwINv7hM8JVV",
+          "name": "Gmail account"
+        }
+      }
     },
     {
       "parameters": {
-        "amount": "={{ $json.followup_ms }}",
-        "unit": "milliseconds"
+        "amount": "=5",
+        "unit": "days"
       },
       "name": "Wait 5 Days",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1,
-      "position": [1080, 1200]
+      "position": [
+        592,
+        1184
+      ],
+      "id": "a23daf59-07eb-451d-ba6d-a469827f018f",
+      "webhookId": "4bcd5260-5602-4d71-9889-b93ba9e2ebe6"
     },
     {
       "parameters": {
@@ -249,42 +321,261 @@
       "name": "Follow-up Reminder",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2,
-      "position": [1320, 1200]
+      "position": [
+        832,
+        1184
+      ],
+      "id": "3c9b8c68-b2ef-4700-8461-f67750452112",
+      "webhookId": "1b92b15d-4830-4f5d-9ea0-20fe9a694c41",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ClUvWwINv7hM8JVV",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Cover Letter Webhook').first().json.body;\nconst lang = (data.language || 'es').toLowerCase();\nconst job = data.job_title || 'el puesto';\nconst company = data.company_name || 'vuestra empresa';\nconst desc = data.job_description || '';\n\nlet letter = '';\n\nif (lang === 'en') {\n  letter = `Dear Hiring Team at ${company},\n\nI am writing to express my interest in the ${job} position. With over 3 years of hands-on experience as a Full Stack Developer, IT Systems Engineer and Automation Specialist, I am confident I can contribute meaningfully from day one.\n\nMy technical background covers workflow automation using n8n, Make and Zapier, full stack web development with Node.js and React, Linux and Windows Server administration, Active Directory, networking, and cybersecurity fundamentals. I have designed and deployed automation pipelines and custom dashboards for local businesses in Valencia, and I hold a CompTIA Network+ certification with Security+ currently in progress.\n\n${desc ? 'Having reviewed the job description, I believe my experience aligns well with your requirements: ' + desc.substring(0, 200) + '...' : 'I am based in Valencia and available for both on-site and remote work.'}\n\nI would welcome the opportunity to discuss how my skills can support your team. I am available for a call or meeting at your convenience.\n\nBest regards,\nMamoune Hodaibi\nmamounehodaibi@gmail.com\ngithub.com/mamounehodaibi`;\n} else {\n  letter = `Estimado equipo de ${company},\n\nMe dirijo a vosotros para expresar mi interés en el puesto de ${job}. Con más de 3 años de experiencia práctica como Desarrollador Full Stack, Ingeniero de Sistemas IT y Especialista en Automatización, estoy seguro de poder aportar valor desde el primer día.\n\nMi perfil técnico abarca automatización de workflows con n8n, Make y Zapier, desarrollo web con Node.js y React, administración de servidores Linux y Windows Server, Active Directory, redes y fundamentos de ciberseguridad. He diseñado e implementado pipelines de automatización y dashboards personalizados para negocios locales en Valencia, y cuento con la certificación CompTIA Network+ con Security+ en curso.\n\n${desc ? 'Revisando la oferta, considero que mi experiencia encaja directamente con vuestros requisitos: ' + desc.substring(0, 200) + '...' : 'Estoy ubicado en Valencia y disponible tanto para trabajo presencial como remoto.'}\n\nMe gustaría tener la oportunidad de explicaros cómo mis habilidades pueden apoyar a vuestro equipo. Quedo a vuestra disposición para una llamada o reunión cuando os venga bien.\n\nUn cordial saludo,\nMamoune Hodaibi\nmamounehodaibi@gmail.com\ngithub.com/mamounehodaibi`;\n}\n\nreturn [{ json: {\n  cover_letter: letter,\n  job_title: job,\n  company: company,\n  subject: lang === 'en' ? `Cover Letter — ${job} at ${company}` : `Carta de presentacion — ${job} en ${company}`\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        688
+      ],
+      "id": "657e078c-3868-43c4-a4ba-5b7ba8f3e4d4",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "=Candidatura registrada — {{ $json.job_title }} en {{ $json.company }}",
+        "message": "=Nueva candidatura registrada:  Empresa: {{ $json.company }} Puesto: {{ $json.job_title }} URL: {{ $json.job_url }} Plataforma: {{ $json.platform }} Fecha envio: {{ $json.date_applied }} Fecha seguimiento: {{ $json.followup_date }} Estado: {{ $json.status }} Notas: {{ $json.notes }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        464,
+        1376
+      ],
+      "id": "741252dd-b7cf-4c03-8e33-8d02aefbc6d9",
+      "name": "Send a message",
+      "webhookId": "0c097eb1-88e1-41eb-bbdf-5095e4e7f583",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Kv6lH4qbcRX3QKUm",
+          "name": "Gmail account 3"
+        }
+      }
     }
   ],
+  "pinData": {},
   "connections": {
     "Every Weekday 8AM": {
-      "main": [[
-        { "node": "Scrape LinkedIn", "type": "main", "index": 0 },
-        { "node": "Scrape InfoJobs", "type": "main", "index": 0 },
-        { "node": "Scrape Tecnoempleo", "type": "main", "index": 0 },
-        { "node": "Scrape Indeed", "type": "main", "index": 0 }
-      ]]
-    },
-    "Scrape LinkedIn": { "main": [[{ "node": "Parse & Combine Jobs", "type": "main", "index": 0 }]] },
-    "Scrape InfoJobs": { "main": [[{ "node": "Parse & Combine Jobs", "type": "main", "index": 0 }]] },
-    "Scrape Tecnoempleo": { "main": [[{ "node": "Parse & Combine Jobs", "type": "main", "index": 0 }]] },
-    "Scrape Indeed": { "main": [[{ "node": "Parse & Combine Jobs", "type": "main", "index": 0 }]] },
-    "Parse & Combine Jobs": { "main": [[{ "node": "Build Digest Email", "type": "main", "index": 0 }]] },
-    "Build Digest Email": { "main": [[{ "node": "Jobs found?", "type": "main", "index": 0 }]] },
-    "Jobs found?": {
       "main": [
-        [{ "node": "Send Digest Email", "type": "main", "index": 0 }],
-        [{ "node": "No Results Email", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Scrape LinkedIn",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Scrape InfoJobs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Scrape Tecnoempleo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Scrape Indeed",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Cover Letter Webhook": { "main": [[{ "node": "Claude — Generate Cover Letter", "type": "main", "index": 0 }]] },
-    "Claude — Generate Cover Letter": { "main": [[{ "node": "Extract Cover Letter", "type": "main", "index": 0 }]] },
-    "Extract Cover Letter": { "main": [[{ "node": "Send Cover Letter", "type": "main", "index": 0 }]] },
-    "Track Application Webhook": { "main": [[{ "node": "Prepare Application Data", "type": "main", "index": 0 }]] },
-    "Prepare Application Data": {
-      "main": [[
-        { "node": "Log to Google Sheets", "type": "main", "index": 0 },
-        { "node": "Confirmation Email", "type": "main", "index": 0 },
-        { "node": "Wait 5 Days", "type": "main", "index": 0 }
-      ]]
+    "Scrape LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Parse & Combine Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Wait 5 Days": { "main": [[{ "node": "Follow-up Reminder", "type": "main", "index": 0 }]] }
+    "Scrape InfoJobs": {
+      "main": [
+        [
+          {
+            "node": "Parse & Combine Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Tecnoempleo": {
+      "main": [
+        [
+          {
+            "node": "Parse & Combine Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Indeed": {
+      "main": [
+        [
+          {
+            "node": "Parse & Combine Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Combine Jobs": {
+      "main": [
+        [
+          {
+            "node": "Build Digest Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Digest Email": {
+      "main": [
+        [
+          {
+            "node": "Jobs found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jobs found?": {
+      "main": [
+        [
+          {
+            "node": "Send Digest Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Results Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cover Letter Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Cover Letter": {
+      "main": [
+        [
+          {
+            "node": "Send Cover Letter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Track Application Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Application Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Application Data": {
+      "main": [
+        [
+          {
+            "node": "Confirmation Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 5 Days": {
+      "main": [
+        [
+          {
+            "node": "Follow-up Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Extract Cover Letter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Wait 5 Days",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" }
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "bf11c34f-9709-4e62-a290-eecc7c84eb01",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "48eba3910da82ab8c955ab68b8bab02d025be2bec8e8edecd78066fd6fa2f7f3"
+  },
+  "id": "FM2aisMvW1hxTbvy",
+  "tags": []
 }
