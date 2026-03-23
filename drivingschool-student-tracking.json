@@ -1,0 +1,220 @@
+{
+  "name": "Driving School Student Tracking Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-student",
+        "responseMode": "onReceived",
+        "responseData": "firstEntryJson"
+      },
+      "name": "New Student Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 100],
+      "notes": "Receives: student_name, student_email, student_phone, exam_date, license_type, instructor"
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "Bienvenido/a a la autoescuela, {{ $json.student_name }}!",
+        "message": "Hola {{ $json.student_name }},\n\nBienvenido/a a la autoescuela. Estamos encantados de tenerte con nosotros.\n\nTus datos:\n- Carnet: {{ $json.license_type }}\n- Instructor: {{ $json.instructor }}\n- Fecha de examen: {{ $json.exam_date }}\n\nRecuerda que puedes contactarnos en cualquier momento si tienes dudas.\n\nMucho animo con la preparacion!\nEl equipo de la autoescuela",
+        "options": {}
+      },
+      "name": "Welcome Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [250, 280]
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "Nuevo alumno — {{ $json.student_name }} | Examen: {{ $json.exam_date }}",
+        "message": "Nuevo alumno registrado:\n\nNombre: {{ $json.student_name }}\nEmail: {{ $json.student_email }}\nTelefono: {{ $json.student_phone }}\nCarnet: {{ $json.license_type }}\nInstructor: {{ $json.instructor }}\nFecha examen: {{ $json.exam_date }}",
+        "options": {}
+      },
+      "name": "Notify Instructor",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [250, 460]
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "minutes"
+      },
+      "name": "Wait Until 7 Days Before Exam",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [250, 640],
+      "notes": "In production: calculate 7 days before exam_date"
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "Tu examen es en 7 dias — consejos para prepararte",
+        "message": "Hola {{ $json.student_name }},\n\nTu examen de {{ $json.license_type }} es el {{ $json.exam_date }}, quedan solo 7 dias!\n\nConsejos para esta semana:\n- Repasa las senales de trafico que menos dominas\n- Haz al menos 2 practicas con {{ $json.instructor }} esta semana\n- Descansa bien los dias previos\n- Revisa el recorrido habitual del examen\n\nRecuerda: la constancia es la clave. Tu puedes!\n\nEl equipo de la autoescuela",
+        "options": {}
+      },
+      "name": "7 Day Exam Reminder",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [250, 820]
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "minutes"
+      },
+      "name": "Wait Until 3 Days Before Exam",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [250, 1000],
+      "notes": "In production: 4 more days (total 3 days before exam)"
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "Faltan 3 dias para tu examen — estas listo/a?",
+        "message": "Hola {{ $json.student_name }},\n\nSolo quedan 3 dias para tu examen del {{ $json.exam_date }}.\n\nRecordatorio importante:\n- Lleva tu DNI o NIE en vigor\n- Lleva las tasas pagadas o el justificante\n- Llega 15 minutos antes al punto de encuentro\n- Descansa bien manana\n\nTu instructor {{ $json.instructor }} confia en ti. Animo!\n\nEl equipo de la autoescuela",
+        "options": {}
+      },
+      "name": "3 Day Exam Reminder",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [250, 1180]
+    },
+    {
+      "parameters": {
+        "amount": 3,
+        "unit": "minutes"
+      },
+      "name": "Wait Until Day Before Exam",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [250, 1360],
+      "notes": "In production: 2 more days (day before exam)"
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "Manana es tu examen — ultimos consejos",
+        "message": "Hola {{ $json.student_name }},\n\nManana es el gran dia! Examen el {{ $json.exam_date }}.\n\nPara esta noche:\n- No estudies mas, ya sabes lo que necesitas\n- Duerme al menos 8 horas\n- Prepara todo lo que necesitas llevar\n- Pon el despertador con tiempo de sobra\n\nPara manana:\n- Respira tranquilo/a\n- Conduce como en tus practicas con {{ $json.instructor }}\n- Si dudas, para en un lugar seguro y piensa\n\nCreemos en ti. Mucha suerte!\nEl equipo de la autoescuela",
+        "options": {}
+      },
+      "name": "Day Before Exam",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [250, 1540]
+    },
+    {
+      "parameters": {
+        "amount": 4,
+        "unit": "minutes"
+      },
+      "name": "Wait For Exam Result",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [250, 1720],
+      "notes": "In production: wait until afternoon of exam day"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "exam-result",
+        "responseMode": "onReceived",
+        "responseData": "firstEntryJson"
+      },
+      "name": "Exam Result Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 1900],
+      "notes": "Receives: student_email, result (PASS or FAIL)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.result }}",
+              "operation": "equal",
+              "value2": "PASS"
+            }
+          ]
+        }
+      },
+      "name": "Did they pass?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [500, 1900]
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "ENHORABUENA {{ $json.student_name }}, has aprobado!",
+        "message": "Hola {{ $json.student_name }},\n\nENHORABUENA! Has aprobado tu examen de {{ $json.license_type }}!\n\nEstamos muy orgullosos de ti. Todo el esfuerzo ha valido la pena.\n\nSi tienes un momento, nos ayudaria mucho si pudieras dejarnos una resena en Google:\n👉 [ENLACE_GOOGLE_REVIEW]\n\nEres parte de nuestra familia de conductores. Conduce siempre con cuidado!\n\nEl equipo de la autoescuela",
+        "options": {}
+      },
+      "name": "PASS Congratulations",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [750, 1780]
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "No te rindas {{ $json.student_name }} — lo conseguiras",
+        "message": "Hola {{ $json.student_name }},\n\nSabemos que el resultado de hoy no es el que esperabas, pero no te desanimes.\n\nMuchos de nuestros mejores conductores no aprobaron a la primera. Lo importante es aprender de la experiencia.\n\nTu instructor {{ $json.instructor }} ya esta preparando un plan especifico para trabajar los puntos que fallaron hoy.\n\nPodemos reservarte fecha para el proximo examen esta misma semana. Respondenos a este email o llamanos cuando quieras.\n\nAnimo, lo conseguiras!\nEl equipo de la autoescuela",
+        "options": {}
+      },
+      "name": "FAIL Encouragement",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [750, 2020]
+    }
+  ],
+  "connections": {
+    "New Student Webhook": {
+      "main": [[{ "node": "Welcome Email", "type": "main", "index": 0 }]]
+    },
+    "Welcome Email": {
+      "main": [[{ "node": "Notify Instructor", "type": "main", "index": 0 }]]
+    },
+    "Notify Instructor": {
+      "main": [[{ "node": "Wait Until 7 Days Before Exam", "type": "main", "index": 0 }]]
+    },
+    "Wait Until 7 Days Before Exam": {
+      "main": [[{ "node": "7 Day Exam Reminder", "type": "main", "index": 0 }]]
+    },
+    "7 Day Exam Reminder": {
+      "main": [[{ "node": "Wait Until 3 Days Before Exam", "type": "main", "index": 0 }]]
+    },
+    "Wait Until 3 Days Before Exam": {
+      "main": [[{ "node": "3 Day Exam Reminder", "type": "main", "index": 0 }]]
+    },
+    "3 Day Exam Reminder": {
+      "main": [[{ "node": "Wait Until Day Before Exam", "type": "main", "index": 0 }]]
+    },
+    "Wait Until Day Before Exam": {
+      "main": [[{ "node": "Day Before Exam", "type": "main", "index": 0 }]]
+    },
+    "Day Before Exam": {
+      "main": [[{ "node": "Wait For Exam Result", "type": "main", "index": 0 }]]
+    },
+    "Wait For Exam Result": {
+      "main": [[{ "node": "Exam Result Webhook", "type": "main", "index": 0 }]]
+    },
+    "Exam Result Webhook": {
+      "main": [[{ "node": "Did they pass?", "type": "main", "index": 0 }]]
+    },
+    "Did they pass?": {
+      "main": [
+        [{ "node": "PASS Congratulations", "type": "main", "index": 0 }],
+        [{ "node": "FAIL Encouragement", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
