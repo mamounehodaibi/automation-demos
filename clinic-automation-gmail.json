@@ -1,0 +1,131 @@
+{
+  "name": "Clinic Appointment Automation (Gmail Demo)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-booking",
+        "responseMode": "onReceived",
+        "responseData": "firstEntryJson"
+      },
+      "name": "New Booking Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 100],
+      "notes": "Receives: patient_name, patient_email, appointment_date, appointment_time, service_type"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.patient_email }}",
+        "subject": "✅ Cita confirmada — {{ $json.service_type }}",
+        "message": "Hola {{ $json.patient_name }},\n\nTu cita ha sido confirmada:\n\n📅 Fecha: {{ $json.appointment_date }}\n🕐 Hora: {{ $json.appointment_time }}\n💆 Servicio: {{ $json.service_type }}\n\nSi necesitas cancelar o modificar tu cita, contáctanos con al menos 24h de antelación.\n\n¡Hasta pronto!\nEl equipo de la clínica",
+        "options": {
+          "allowSendingWithoutReply": true
+        }
+      },
+      "name": "Send Confirmation Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [250, 280],
+      "notes": "Instant confirmation email on booking"
+    },
+    {
+      "parameters": {
+        "amount": 24,
+        "unit": "hours"
+      },
+      "name": "Wait 24h Before Appointment",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [250, 460]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.patient_email }}",
+        "subject": "⏰ Recordatorio — Tu cita es mañana",
+        "message": "Hola {{ $json.patient_name }},\n\nTe recordamos que mañana tienes cita con nosotros:\n\n📅 {{ $json.appointment_date }} a las {{ $json.appointment_time }}\n💆 {{ $json.service_type }}\n\n📍 Dirección: [DIRECCIÓN_CLÍNICA]\n\nSi tienes alguna duda, responde a este email o llámanos.\n\n¡Te esperamos!\nEl equipo de la clínica",
+        "options": {
+          "allowSendingWithoutReply": true
+        }
+      },
+      "name": "Send 24h Reminder Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [250, 640]
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "hours"
+      },
+      "name": "Wait Until After Appointment",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [250, 820]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.patient_email }}",
+        "subject": "💆 ¿Qué tal tu sesión hoy?",
+        "message": "Hola {{ $json.patient_name }},\n\nEsperamos que hayas disfrutado tu sesión de {{ $json.service_type }} de hoy.\n\n¿Cómo te has sentido? Nos encantaría saberlo.\n\nSi quieres reservar tu próxima cita, puedes hacerlo aquí:\n👉 [ENLACE_RESERVA]\n\nCualquier duda estamos a tu disposición.\n\n¡Hasta pronto!\nEl equipo de la clínica",
+        "options": {
+          "allowSendingWithoutReply": true
+        }
+      },
+      "name": "Post-Session Follow-up Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [250, 1000]
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "days"
+      },
+      "name": "Wait 30 Days",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [250, 1180]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.patient_email }}",
+        "subject": "💙 Te echamos de menos, {{ $json.patient_name }}",
+        "message": "Hola {{ $json.patient_name }},\n\nHace un tiempo que no te vemos por la clínica y queríamos saber cómo estás.\n\nSi quieres retomar tu tratamiento o simplemente darte un capricho, tenemos disponibilidad esta semana.\n\n👉 Reserva tu sesión aquí: [ENLACE_RESERVA]\n\nComo siempre, estamos aquí para cualquier pregunta.\n\n¡Hasta pronto!\nEl equipo de la clínica",
+        "options": {
+          "allowSendingWithoutReply": true
+        }
+      },
+      "name": "Reactivation Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [250, 1360]
+    }
+  ],
+  "connections": {
+    "New Booking Webhook": {
+      "main": [[{ "node": "Send Confirmation Email", "type": "main", "index": 0 }]]
+    },
+    "Send Confirmation Email": {
+      "main": [[{ "node": "Wait 24h Before Appointment", "type": "main", "index": 0 }]]
+    },
+    "Wait 24h Before Appointment": {
+      "main": [[{ "node": "Send 24h Reminder Email", "type": "main", "index": 0 }]]
+    },
+    "Send 24h Reminder Email": {
+      "main": [[{ "node": "Wait Until After Appointment", "type": "main", "index": 0 }]]
+    },
+    "Wait Until After Appointment": {
+      "main": [[{ "node": "Post-Session Follow-up Email", "type": "main", "index": 0 }]]
+    },
+    "Post-Session Follow-up Email": {
+      "main": [[{ "node": "Wait 30 Days", "type": "main", "index": 0 }]]
+    },
+    "Wait 30 Days": {
+      "main": [[{ "node": "Reactivation Email", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
