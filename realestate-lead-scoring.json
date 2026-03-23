@@ -1,0 +1,240 @@
+{
+  "name": "Real Estate Lead Scoring Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-lead-scored",
+        "responseMode": "onReceived",
+        "responseData": "firstEntryJson"
+      },
+      "name": "New Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 100],
+      "notes": "Receives: lead_name, lead_email, lead_phone, property_type, budget, zone, urgency"
+    },
+    {
+      "parameters": {
+        "functionCode": "const data = $input.first().json;\n\nlet score = 0;\nlet reasons = [];\n\n// BUDGET SCORING (0-40 pts)\nconst budget = parseInt(data.budget.replace(/[^0-9]/g, '')) || 0;\nif (budget >= 300000) {\n  score += 40;\n  reasons.push('Alto presupuesto (+40)');\n} else if (budget >= 150000) {\n  score += 25;\n  reasons.push('Presupuesto medio (+25)');\n} else {\n  score += 10;\n  reasons.push('Presupuesto bajo (+10)');\n}\n\n// ZONE SCORING (0-30 pts)\nconst hotZones = ['ruzafa', 'eixample', 'l\\'eixample', 'el carmen', 'ciutat vella', 'extramurs'];\nconst zone = data.zone.toLowerCase();\nif (hotZones.some(z => zone.includes(z))) {\n  score += 30;\n  reasons.push('Zona premium (+30)');\n} else if (zone.includes('valencia')) {\n  score += 15;\n  reasons.push('Valencia ciudad (+15)');\n} else {\n  score += 5;\n  reasons.push('Zona exterior (+5)');\n}\n\n// PROPERTY TYPE SCORING (0-20 pts)\nconst type = data.property_type.toLowerCase();\nif (type.includes('compra') || type.includes('piso') || type.includes('chalet') || type.includes('atico')) {\n  score += 20;\n  reasons.push('Compra (+20)');\n} else if (type.includes('alquiler')) {\n  score += 10;\n  reasons.push('Alquiler (+10)');\n} else {\n  score += 5;\n  reasons.push('Tipo no especificado (+5)');\n}\n\n// URGENCY SCORING (0-10 pts)\nconst urgency = (data.urgency || '').toLowerCase();\nif (urgency.includes('urgent') || urgency.includes('inmedia') || urgency.includes('cuanto antes')) {\n  score += 10;\n  reasons.push('Urgente (+10)');\n}\n\n// PRIORITY TIER\nlet tier, tierLabel, tierEmoji;\nif (score >= 70) {\n  tier = 'HOT';\n  tierLabel = 'Lead Caliente';\n  tierEmoji = '🔥';\n} else if (score >= 40) {\n  tier = 'WARM';\n  tierLabel = 'Lead Tibio';\n  tierEmoji = '⚡';\n} else {\n  tier = 'COLD';\n  tierLabel = 'Lead Frío';\n  tierEmoji = '❄️';\n}\n\nreturn [{\n  json: {\n    ...data,\n    score,\n    tier,\n    tierLabel,\n    tierEmoji,\n    scoreReasons: reasons.join(', ')\n  }\n}];"
+      },
+      "name": "Calculate Lead Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 280],
+      "notes": "Scores lead 0-100 based on budget, zone, property type and urgency"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.score }}",
+              "operation": "largerEqual",
+              "value2": 70
+            }
+          ]
+        }
+      },
+      "name": "Is HOT lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [500, 280],
+      "notes": "Routes HOT leads (70+) to urgent path, others to second check"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.score }}",
+              "operation": "largerEqual",
+              "value2": 40
+            }
+          ]
+        }
+      },
+      "name": "Is WARM lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [500, 520],
+      "notes": "Routes WARM leads (40-69) to standard path, rest to cold nurture"
+    },
+
+    // ─── HOT PATH ───────────────────────────────────────────
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "🔥 LEAD CALIENTE — {{ $json.lead_name }} ({{ $json.score }}/100)",
+        "message": "ACCIÓN INMEDIATA REQUERIDA\n\nNuevo lead caliente recibido:\n\n👤 Nombre: {{ $json.lead_name }}\n📧 Email: {{ $json.lead_email }}\n📞 Teléfono: {{ $json.lead_phone }}\n🏠 Busca: {{ $json.property_type }}\n💰 Presupuesto: {{ $json.budget }}\n📍 Zona: {{ $json.zone }}\n⚡ Urgencia: {{ $json.urgency }}\n\n📊 PUNTUACIÓN: {{ $json.score }}/100\n📋 Motivos: {{ $json.scoreReasons }}\n\n⚠️ Llamar en los próximos 30 minutos para maximizar conversión.",
+        "options": {}
+      },
+      "name": "URGENT Agent Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [750, 160],
+      "notes": "Urgent internal alert for HOT leads — agent must call within 30 min"
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "Hemos encontrado propiedades perfectas para ti en {{ $json.zone }}",
+        "message": "Hola {{ $json.lead_name }},\n\nGracias por contactar con nosotros. Tu consulta sobre {{ $json.property_type }} en {{ $json.zone }} es exactamente nuestra especialidad.\n\nTenemos propiedades seleccionadas que encajan con tu presupuesto de {{ $json.budget }} y te las queremos mostrar personalmente.\n\nUno de nuestros mejores agentes te llamará en los próximos 30 minutos para organizar visitas esta misma semana.\n\n¡Hablamos pronto!\nEl equipo de la inmobiliaria",
+        "options": {}
+      },
+      "name": "HOT Lead Response",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [750, 320],
+      "notes": "Premium response for HOT leads — promises a call within 30 min"
+    },
+
+    // ─── WARM PATH ──────────────────────────────────────────
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "⚡ Nuevo lead — {{ $json.lead_name }} ({{ $json.score }}/100)",
+        "message": "Nuevo lead recibido:\n\n👤 {{ $json.lead_name }}\n📞 {{ $json.lead_phone }}\n🏠 {{ $json.property_type }} en {{ $json.zone }}\n💰 {{ $json.budget }}\n\n📊 Puntuación: {{ $json.score }}/100\n📋 {{ $json.scoreReasons }}\n\nContactar en las próximas 2-4 horas.",
+        "options": {}
+      },
+      "name": "WARM Agent Notification",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [750, 460],
+      "notes": "Standard agent notification for WARM leads"
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "Gracias por tu interés — {{ $json.property_type }} en {{ $json.zone }}",
+        "message": "Hola {{ $json.lead_name }},\n\nGracias por contactar con nosotros. Hemos recibido tu consulta sobre {{ $json.property_type }} en {{ $json.zone }} con un presupuesto de {{ $json.budget }}.\n\nUn agente se pondrá en contacto contigo en las próximas horas con las mejores opciones disponibles.\n\nMientras tanto, puedes explorar nuestras propiedades en: [ENLACE_WEB]\n\n¡Hasta pronto!\nEl equipo de la inmobiliaria",
+        "options": {}
+      },
+      "name": "WARM Lead Response",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [750, 600],
+      "notes": "Standard auto-response for WARM leads"
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "minutes"
+      },
+      "name": "Wait 1 Day (WARM)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [750, 740],
+      "notes": "In production: 1 day"
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "¿Has tenido oportunidad de revisar nuestras propiedades?",
+        "message": "Hola {{ $json.lead_name }},\n\nQueríamos asegurarnos de que todo está bien y ver si tienes alguna pregunta sobre las propiedades disponibles en {{ $json.zone }}.\n\nTenemos opciones que encajan con tu búsqueda en el rango de {{ $json.budget }}. ¿Te viene bien una llamada rápida esta semana?\n\nSaludos,\nEl equipo de la inmobiliaria",
+        "options": {}
+      },
+      "name": "WARM Follow-up Day 1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [750, 880],
+      "notes": "Day 1 follow-up for WARM leads"
+    },
+
+    // ─── COLD PATH ──────────────────────────────────────────
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "❄️ Lead frío — {{ $json.lead_name }} ({{ $json.score }}/100)",
+        "message": "Lead de baja prioridad recibido:\n\n👤 {{ $json.lead_name }}\n🏠 {{ $json.property_type }} en {{ $json.zone }}\n💰 {{ $json.budget }}\n\n📊 Puntuación: {{ $json.score }}/100\n📋 {{ $json.scoreReasons }}\n\nEl sistema enviará seguimientos automáticos. No requiere acción inmediata.",
+        "options": {}
+      },
+      "name": "COLD Agent Log",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [750, 1020],
+      "notes": "Low priority log for COLD leads — no action needed from agent"
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "Gracias por contactar — te ayudamos a encontrar tu propiedad",
+        "message": "Hola {{ $json.lead_name }},\n\nGracias por tu interés en propiedades en {{ $json.zone }}. Hemos recibido tu consulta y la tendremos en cuenta.\n\nPuedes explorar todas nuestras propiedades disponibles en: [ENLACE_WEB]\n\nSi en algún momento quieres que un agente te contacte personalmente, responde a este email y lo gestionamos.\n\n¡Hasta pronto!\nEl equipo de la inmobiliaria",
+        "options": {}
+      },
+      "name": "COLD Lead Response",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [750, 1160],
+      "notes": "Low-touch response for COLD leads"
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "minutes"
+      },
+      "name": "Wait 7 Days (COLD)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [750, 1300],
+      "notes": "In production: 7 days"
+    },
+    {
+      "parameters": {
+        "sendTo": "mamounehodaibi@gmail.com",
+        "subject": "¿Sigues buscando propiedad en {{ $json.zone }}?",
+        "message": "Hola {{ $json.lead_name }},\n\nHace unos días nos contactaste sobre {{ $json.property_type }} en {{ $json.zone }}.\n\nSi todavía estás en búsqueda, estaremos encantados de ayudarte. Si tus planes han cambiado, no hay problema.\n\n👉 Ver propiedades disponibles: [ENLACE_WEB]\n\nSaludos,\nEl equipo de la inmobiliaria",
+        "options": {}
+      },
+      "name": "COLD Nurture Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [750, 1440],
+      "notes": "Single nurture email for COLD leads after 7 days"
+    }
+  ],
+  "connections": {
+    "New Lead Webhook": {
+      "main": [[{ "node": "Calculate Lead Score", "type": "main", "index": 0 }]]
+    },
+    "Calculate Lead Score": {
+      "main": [[{ "node": "Is HOT lead?", "type": "main", "index": 0 }]]
+    },
+    "Is HOT lead?": {
+      "main": [
+        [{ "node": "URGENT Agent Alert", "type": "main", "index": 0 }],
+        [{ "node": "Is WARM lead?", "type": "main", "index": 0 }]
+      ]
+    },
+    "URGENT Agent Alert": {
+      "main": [[{ "node": "HOT Lead Response", "type": "main", "index": 0 }]]
+    },
+    "Is WARM lead?": {
+      "main": [
+        [{ "node": "WARM Agent Notification", "type": "main", "index": 0 }],
+        [{ "node": "COLD Agent Log", "type": "main", "index": 0 }]
+      ]
+    },
+    "WARM Agent Notification": {
+      "main": [[{ "node": "WARM Lead Response", "type": "main", "index": 0 }]]
+    },
+    "WARM Lead Response": {
+      "main": [[{ "node": "Wait 1 Day (WARM)", "type": "main", "index": 0 }]]
+    },
+    "Wait 1 Day (WARM)": {
+      "main": [[{ "node": "WARM Follow-up Day 1", "type": "main", "index": 0 }]]
+    },
+    "COLD Agent Log": {
+      "main": [[{ "node": "COLD Lead Response", "type": "main", "index": 0 }]]
+    },
+    "COLD Lead Response": {
+      "main": [[{ "node": "Wait 7 Days (COLD)", "type": "main", "index": 0 }]]
+    },
+    "Wait 7 Days (COLD)": {
+      "main": [[{ "node": "COLD Nurture Email", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
